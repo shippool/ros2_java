@@ -19,12 +19,17 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import org.ros2.rcljava.action.ActionServer;
+import org.ros2.rcljava.action.ActionServerGoalHandle;
+import org.ros2.rcljava.action.CancelCallback;
+import org.ros2.rcljava.action.GoalCallback;
 import org.ros2.rcljava.client.Client;
 import org.ros2.rcljava.concurrent.Callback;
 import org.ros2.rcljava.consumers.Consumer;
 import org.ros2.rcljava.consumers.TriConsumer;
 import org.ros2.rcljava.qos.QoSProfile;
 import org.ros2.rcljava.interfaces.Disposable;
+import org.ros2.rcljava.interfaces.ActionDefinition;
 import org.ros2.rcljava.interfaces.MessageDefinition;
 import org.ros2.rcljava.interfaces.ServiceDefinition;
 import org.ros2.rcljava.parameters.ParameterType;
@@ -71,6 +76,11 @@ public interface Node extends Disposable {
    * @return All the @{link Timer}s that were created by this instance.
    */
   Collection<Timer> getTimers();
+
+  /**
+   * @return All the @{link ActionServer}s that were created by this instance.
+   */
+  Collection<ActionServer> getActionServers();
 
   /**
    * Create a Subscription&lt;T&gt;.
@@ -128,6 +138,12 @@ public interface Node extends Disposable {
   <T extends ServiceDefinition> Client<T> createClient(final Class<T> serviceType,
       final String serviceName) throws NoSuchFieldException, IllegalAccessException;
 
+  <T extends ActionDefinition> ActionServer<T> createActionServer(final Class<T> actionType,
+      final String actionName,
+      final GoalCallback<? extends MessageDefinition> goalCallback,
+      final CancelCallback<? extends ActionDefinition> cancelCallback,
+      final Consumer<ActionServerGoalHandle<? extends ActionDefinition>> acceptedCallback);
+
   /**
    * Remove a Subscription created by this Node.
    *
@@ -176,6 +192,17 @@ public interface Node extends Disposable {
    */
   boolean removeClient(final Client client);
 
+  /**
+   * Remove an @{link ActionServer} created by this Node.
+   *
+   * Calling this method effectively invalidates the passed @{link ActionServer}.
+   * If the server was not created by this Node, then nothing happens.
+   *
+   * @param actionServer The object to remove from this node.
+   * @return true if the server was removed, false if the server was already
+   *   removed or was never created by this Node.
+   */
+  boolean removeActionServer(final ActionServer actionServer);
 
   WallTimer createWallTimer(final long period, final TimeUnit unit, final Callback callback);
 

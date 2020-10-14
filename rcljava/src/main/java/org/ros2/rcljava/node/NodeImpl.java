@@ -16,6 +16,11 @@
 package org.ros2.rcljava.node;
 
 import org.ros2.rcljava.RCLJava;
+import org.ros2.rcljava.action.ActionServer;
+import org.ros2.rcljava.action.ActionServerImpl;
+import org.ros2.rcljava.action.ActionServerGoalHandle;
+import org.ros2.rcljava.action.CancelCallback;
+import org.ros2.rcljava.action.GoalCallback;
 import org.ros2.rcljava.client.Client;
 import org.ros2.rcljava.client.ClientImpl;
 import org.ros2.rcljava.common.JNIUtils;
@@ -25,6 +30,7 @@ import org.ros2.rcljava.consumers.TriConsumer;
 import org.ros2.rcljava.contexts.Context;
 import org.ros2.rcljava.qos.QoSProfile;
 import org.ros2.rcljava.interfaces.Disposable;
+import org.ros2.rcljava.interfaces.ActionDefinition;
 import org.ros2.rcljava.interfaces.MessageDefinition;
 import org.ros2.rcljava.interfaces.ServiceDefinition;
 import org.ros2.rcljava.parameters.ParameterType;
@@ -114,6 +120,11 @@ public class NodeImpl implements Node {
    */
   private final Collection<Timer> timers;
 
+  /**
+   * All the @{link ActionServer}s that have been created through this instance.
+   */
+  private final Collection<ActionServer> actionServers;
+
   private final String name;
 
   private Object mutex;
@@ -136,6 +147,7 @@ public class NodeImpl implements Node {
     this.services = new LinkedBlockingQueue<Service>();
     this.clients = new LinkedBlockingQueue<Client>();
     this.timers = new LinkedBlockingQueue<Timer>();
+    this.actionServers = new LinkedBlockingQueue<ActionServer>();
     this.mutex = new Object();
     this.parameters = new ConcurrentHashMap<String, ParameterVariant>();
   }
@@ -322,6 +334,18 @@ public class NodeImpl implements Node {
   private static native <T extends ServiceDefinition> long nativeCreateClientHandle(
       long handle, Class<T> cls, String serviceName, long qosProfileHandle);
 
+  public <T extends ActionDefinition> ActionServer<T> createActionServer(final Class<T> actionType,
+      final String actionName,
+      final GoalCallback<? extends MessageDefinition> goalCallback,
+      final CancelCallback<? extends ActionDefinition> cancelCallback,
+      final Consumer<ActionServerGoalHandle<? extends ActionDefinition>> acceptedCallback) {
+    ActionServer<T> actionServer = new ActionServerImpl<T>(
+        new WeakReference<Node>(this), actionType, actionName,
+        goalCallback, cancelCallback, acceptedCallback);
+    this.actionServers.add(actionServer);
+    return actionServer;
+  }
+
   /**
    * {@inheritDoc}
    */
@@ -334,6 +358,13 @@ public class NodeImpl implements Node {
    */
   public boolean removeClient(final Client client) {
     return this.clients.remove(client);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public boolean removeActionServer(final ActionServer actionServer) {
+    return this.actionServers.remove(actionServer);
   }
 
   /**
@@ -399,6 +430,13 @@ public class NodeImpl implements Node {
    */
   public final Collection<Timer> getTimers() {
     return this.timers;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  public final Collection<ActionServer> getActionServers() {
+    return this.actionServers;
   }
 
   /**
