@@ -188,6 +188,7 @@ ament_export_jars("share/${PROJECT_NAME}/java/${PROJECT_NAME}.jar")
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   find_package(std_msgs REQUIRED)
+  find_package(test_msgs REQUIRED)
   ament_lint_auto_find_test_dependencies()
 
   set(${PROJECT_NAME}_message_files
@@ -232,6 +233,7 @@ if(BUILD_TESTING)
   set(${PROJECT_NAME}_test_sources
     "src/test/java/org/ros2/rcljava/RCLJavaTest.java"
     "src/test/java/org/ros2/rcljava/TimeTest.java"
+    "src/test/java/org/ros2/rcljava/action/ActionServerTest.java"
     "src/test/java/org/ros2/rcljava/client/ClientTest.java"
     "src/test/java/org/ros2/rcljava/node/NodeTest.java"
     "src/test/java/org/ros2/rcljava/parameters/AsyncParametersClientTest.java"
@@ -244,6 +246,7 @@ if(BUILD_TESTING)
   set(${PROJECT_NAME}_testsuites
     "org.ros2.rcljava.RCLJavaTest"
     "org.ros2.rcljava.TimeTest"
+    "org.ros2.rcljava.action.ActionServerTest"
     "org.ros2.rcljava.client.ClientTest"
     "org.ros2.rcljava.node.NodeTest"
     "org.ros2.rcljava.parameters.SyncParametersClientTest"
@@ -289,6 +292,15 @@ if(BUILD_TESTING)
     list_append_unique(_deps_library_dirs ${_dep_dir})
   endforeach()
 
+  foreach(_dep_lib ${test_msgs_LIBRARIES})
+    get_filename_component(_dep_dir "${_dep_lib}" DIRECTORY)
+    list_append_unique(_deps_library_dirs ${_dep_dir})
+  endforeach()
+  foreach(_dep_lib ${test_msgs_JNI_LIBRARIES})
+    get_filename_component(_dep_dir "${_dep_lib}" DIRECTORY)
+    list_append_unique(_deps_library_dirs ${_dep_dir})
+  endforeach()
+
   list_append_unique(_deps_library_dirs ${CMAKE_CURRENT_BINARY_DIR})
   list_append_unique(_deps_library_dirs ${CMAKE_CURRENT_BINARY_DIR}/rcljava)
   list_append_unique(_deps_library_dirs ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_java/rcljava/msg/)
@@ -309,6 +321,7 @@ if(BUILD_TESTING)
       "${std_msgs_JARS}"
       "${builtin_interfaces_JARS}"
       "${rcl_interfaces_JARS}"
+      "${test_msgs_JARS}"
       "${_${PROJECT_NAME}_jar_file}"
       "${_${PROJECT_NAME}_messages_jar_file}"
       APPEND_LIBRARY_DIRS
