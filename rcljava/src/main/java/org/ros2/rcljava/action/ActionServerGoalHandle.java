@@ -18,5 +18,13 @@ package org.ros2.rcljava.action;
 import org.ros2.rcljava.interfaces.ActionDefinition;
 
 public class ActionServerGoalHandle<T extends ActionDefinition> {
+  private ActionDefinition.ActionGoal<T> goal;
 
+  public ActionServerGoalHandle(ActionDefinition.ActionGoal<T> goal) {
+    this.goal = goal;
+  }
+
+  public ActionDefinition.ActionGoal<T> getGoal() {
+    return this.goal;
+  }
 }

@@ -28,7 +28,105 @@
 
 #include "org_ros2_rcljava_action_ActionServerImpl.h"
 
+#include "./convert.hpp"
+
 using rcljava_common::exceptions::rcljava_throw_rclexception;
+using rcljava_common::signatures::convert_from_java_signature;
+using rcljava_common::signatures::convert_to_java_signature;
+using rcljava_common::signatures::destroy_ros_message_signature;
+
+#define RCLJAVA_ACTION_SERVER_GET_NUMBER_OF_ENTITY(Type) \
+  do { \
+    size_t num_subscriptions; \
+    size_t num_guard_conditions; \
+    size_t num_timers; \
+    size_t num_clients; \
+    size_t num_services; \
+    rcl_action_server_t * action_server = reinterpret_cast<rcl_action_server_t *>( \
+      action_server_handle); \
+    rcl_ret_t ret = rcl_action_server_wait_set_get_num_entities( \
+      action_server, \
+      &num_subscriptions, \
+      &num_guard_conditions, \
+      &num_timers, \
+      &num_clients, \
+      &num_services); \
+    if (ret != RCL_RET_OK) { \
+      std::string msg = \
+        "Failed to get number of entities for an action server: " + \
+        std::string(rcl_get_error_string().str); \
+      rcl_reset_error(); \
+      rcljava_throw_rclexception(env, ret, msg); \
+    } \
+    return static_cast<int>(num_ ## Type ## s); \
+  } \
+  while (0)
+
+JNIEXPORT jint
+JNICALL Java_org_ros2_rcljava_action_ActionServerImpl_nativeGetNumberOfSubscriptions(
+  JNIEnv * env, jclass, jlong action_server_handle)
+{
+  RCLJAVA_ACTION_SERVER_GET_NUMBER_OF_ENTITY(subscription);
+}
+
+JNIEXPORT jint
+JNICALL Java_org_ros2_rcljava_action_ActionServerImpl_nativeGetNumberOfTimers(
+  JNIEnv * env, jclass, jlong action_server_handle)
+{
+  RCLJAVA_ACTION_SERVER_GET_NUMBER_OF_ENTITY(timer);
+}
+
+JNIEXPORT jint
+JNICALL Java_org_ros2_rcljava_action_ActionServerImpl_nativeGetNumberOfClients(
+  JNIEnv * env, jclass, jlong action_server_handle)
+{
+  RCLJAVA_ACTION_SERVER_GET_NUMBER_OF_ENTITY(client);
+}
+
+JNIEXPORT jint
+JNICALL Java_org_ros2_rcljava_action_ActionServerImpl_nativeGetNumberOfServices(
+  JNIEnv * env, jclass, jlong action_server_handle)
+{
+  RCLJAVA_ACTION_SERVER_GET_NUMBER_OF_ENTITY(service);
+}
+
+JNIEXPORT jbooleanArray
+JNICALL Java_org_ros2_rcljava_action_ActionServerImpl_nativeGetReadyEntities(
+  JNIEnv * env, jclass, jlong action_server_handle, jlong wait_set_handle)
+{
+  rcl_action_server_t * action_server = reinterpret_cast<rcl_action_server_t *>(
+    action_server_handle);
+  rcl_wait_set_t * wait_set = reinterpret_cast<rcl_wait_set_t *>(wait_set_handle);
+
+  bool is_goal_request_ready = false;
+  bool is_cancel_request_ready = false;
+  bool is_result_request_ready = false;
+  bool is_goal_expired = false;
+  rcl_ret_t ret = rcl_action_server_wait_set_get_entities_ready(
+    wait_set,
+    action_server,
+    &is_goal_request_ready,
+    &is_cancel_request_ready,
+    &is_result_request_ready,
+    &is_goal_expired);
+  if (RCL_RET_OK != ret) {
+    std::string msg = "Failed to get ready entities for action server: " +
+      std::string(rcl_get_error_string().str);
+    rcl_reset_error();
+    rcljava_throw_rclexception(env, ret, msg);
+    return NULL;
+  }
+
+  jbooleanArray result = env->NewBooleanArray(4);
+  jboolean temp_result[4] = {
+    is_goal_request_ready,
+    is_cancel_request_ready,
+    is_result_request_ready,
+    is_goal_expired
+  };
+  env->SetBooleanArrayRegion(result, 0, 4, temp_result);
+  return result;
+}
 
 JNIEXPORT void JNICALL
 Java_org_ros2_rcljava_action_ActionServerImpl_nativeDispose(
@@ -106,4 +204,115 @@ Java_org_ros2_rcljava_action_ActionServerImpl_nativeCreateActionServer(
 
   jlong jaction_server = reinterpret_cast<jlong>(action_server);
   return jaction_server;
+}
+
+#define RCLJAVA_ACTION_SERVER_TAKE_REQUEST(Type) \
+  do { \
+    assert(jrequest_from_java_converter_handle != 0); \
+    assert(jrequest_to_java_converter_handle != 0); \
+    rcl_action_server_t * action_server = reinterpret_cast<rcl_action_server_t *>( \
+      action_server_handle); \
+    convert_from_java_signature convert_from_java = \
+      reinterpret_cast<convert_from_java_signature>(jrequest_from_java_converter_handle); \
+    convert_to_java_signature convert_to_java = \
+      reinterpret_cast<convert_to_java_signature>(jrequest_to_java_converter_handle); \
+    destroy_ros_message_signature destroy_ros_message = \
+      reinterpret_cast<destroy_ros_message_signature>(jrequest_destructor_handle); \
+    void * taken_msg = convert_from_java(jrequest_msg, nullptr); \
+    rmw_request_id_t header; \
+    rcl_ret_t ret = rcl_action_take_ ## Type ## _request(action_server, &header, taken_msg); \
+    if (ret != RCL_RET_OK && ret != RCL_RET_ACTION_SERVER_TAKE_FAILED) { \
+      destroy_ros_message(taken_msg); \
+      std::string msg = \
+        "Failed to take " #Type " request: " + std::string(rcl_get_error_string().str); \
+      rcl_reset_error(); \
+      rcljava_throw_rclexception(env, ret, msg); \
+      return nullptr; \
+    } \
+    if (RCL_RET_OK == ret) { \
+      jobject jtaken_msg = convert_to_java(taken_msg, jrequest_msg); \
+      destroy_ros_message(taken_msg); \
+      assert(jtaken_msg != nullptr); \
+      jobject jheader = convert_rmw_request_id_to_java(env, &header); \
+      return jheader; \
+    } \
+    destroy_ros_message(taken_msg); \
+    return nullptr; \
+  } \
+  while (0)
+
+#define RCLJAVA_ACTION_SERVER_SEND_RESPONSE(Type) \
+  do { \
+    assert(jresponse_from_java_converter_handle != 0); \
+    assert(jresponse_to_java_converter_handle != 0); \
+    assert(jresponse_destructor_handle != 0); \
+    rcl_action_server_t * action_server = reinterpret_cast<rcl_action_server_t *>( \
+      action_server_handle); \
+    convert_from_java_signature convert_from_java = \
+      reinterpret_cast<convert_from_java_signature>(jresponse_from_java_converter_handle); \
+    void * response_msg = convert_from_java(jresponse_msg, nullptr); \
+    rmw_request_id_t * request_id = convert_rmw_request_id_from_java(env, jrequest_id); \
+    rcl_ret_t ret = rcl_action_send_ ## Type ## _response( \
+      action_server, request_id, response_msg); \
+    destroy_ros_message_signature destroy_ros_message = \
+      reinterpret_cast<destroy_ros_message_signature>(jresponse_destructor_handle); \
+    destroy_ros_message(response_msg); \
+    if (ret != RCL_RET_OK) { \
+      std::string msg = \
+        "Failed to send " #Type " response: " + std::string(rcl_get_error_string().str); \
+      rcl_reset_error(); \
+      rcljava_throw_rclexception(env, ret, msg); \
+    } \
+  } \
+  while (0)
+
+JNIEXPORT jobject
+JNICALL Java_org_ros2_rcljava_action_ActionServerImpl_nativeTakeGoalRequeset(
+  JNIEnv * env, jclass, jlong action_server_handle, jlong jrequest_from_java_converter_handle,
+  jlong jrequest_to_java_converter_handle, jlong jrequest_destructor_handle, jobject jrequest_msg)
+{
+  RCLJAVA_ACTION_SERVER_TAKE_REQUEST(goal);
+}
+
+JNIEXPORT jobject
+JNICALL Java_org_ros2_rcljava_action_ActionServerImpl_nativeTakeCancelRequeset(
+  JNIEnv * env, jclass, jlong action_server_handle, jlong jrequest_from_java_converter_handle,
+  jlong jrequest_to_java_converter_handle, jlong jrequest_destructor_handle, jobject jrequest_msg)
+{
+  RCLJAVA_ACTION_SERVER_TAKE_REQUEST(cancel);
+}
+
+JNIEXPORT jobject
+JNICALL Java_org_ros2_rcljava_action_ActionServerImpl_nativeTakeResultRequeset(
+  JNIEnv * env, jclass, jlong action_server_handle, jlong jrequest_from_java_converter_handle,
+  jlong jrequest_to_java_converter_handle, jlong jrequest_destructor_handle, jobject jrequest_msg)
+{
+  RCLJAVA_ACTION_SERVER_TAKE_REQUEST(result);
+}
+
+JNIEXPORT void
+JNICALL Java_org_ros2_rcljava_action_ActionServerImpl_nativeSendGoalResponse(
+  JNIEnv * env, jclass, jlong action_server_handle, jobject jrequest_id,
+  jlong jresponse_from_java_converter_handle, jlong jresponse_to_java_converter_handle,
+  jlong jresponse_destructor_handle, jobject jresponse_msg)
+{
+  RCLJAVA_ACTION_SERVER_SEND_RESPONSE(goal);
+}
+
+JNIEXPORT void
+JNICALL Java_org_ros2_rcljava_action_ActionServerImpl_nativeSendCancelResponse(
+  JNIEnv * env, jclass, jlong action_server_handle, jobject jrequest_id,
+  jlong jresponse_from_java_converter_handle, jlong jresponse_to_java_converter_handle,
+  jlong jresponse_destructor_handle, jobject jresponse_msg)
+{
+  RCLJAVA_ACTION_SERVER_SEND_RESPONSE(cancel);
+}
+
+JNIEXPORT void
+JNICALL Java_org_ros2_rcljava_action_ActionServerImpl_nativeSendResultResponse(
+  JNIEnv * env, jclass, jlong action_server_handle, jobject jrequest_id,
+  jlong jresponse_from_java_converter_handle, jlong jresponse_to_java_converter_handle,
+  jlong jresponse_destructor_handle, jobject jresponse_msg)
+{
+  RCLJAVA_ACTION_SERVER_SEND_RESPONSE(result);
 }

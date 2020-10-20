@@ -12,6 +12,7 @@
   <buildtool_depend>ament_cmake_export_jni_libraries</buildtool_depend>
   <buildtool_depend>rcljava_common</buildtool_depend>
 
+  <build_depend>action_msgs</build_depend>
   <build_depend>builtin_interfaces</build_depend>
   <build_depend>rcl_interfaces</build_depend>
   <build_depend>rcl</build_depend>
@@ -27,6 +28,7 @@
   <build_export_depend>rosidl_generator_java</build_export_depend>
   <build_export_depend>rosidl_typesupport_c</build_export_depend>
 
+  <exec_depend>action_msgs</exec_depend>
   <exec_depend>builtin_interfaces</exec_depend>
   <exec_depend>rcl_interfaces</exec_depend>
   <exec_depend>rcl</exec_depend>

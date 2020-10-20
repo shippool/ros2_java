@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.5)
 
 project(rcljava)
 
+find_package(action_msgs REQUIRED)
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_export_jars REQUIRED)
 find_package(ament_cmake_export_jni_libraries REQUIRED)
@@ -100,6 +101,7 @@ foreach(_jni_source ${${PROJECT_NAME}_jni_sources})
     "rcljava_common"
     "builtin_interfaces"
     "rcl_interfaces"
+    "action_msgs"
   )
 
   target_include_directories(${_target_name}
@@ -180,6 +182,7 @@ add_jar("${PROJECT_NAME}_jar"
   ${rcljava_common_JARS}
   ${builtin_interfaces_JARS}
   ${rcl_interfaces_JARS}
+  ${action_msgs_JARS}
 )
 
 install_jar("${PROJECT_NAME}_jar" "share/${PROJECT_NAME}/java")
@@ -234,6 +237,7 @@ if(BUILD_TESTING)
     "src/test/java/org/ros2/rcljava/RCLJavaTest.java"
     "src/test/java/org/ros2/rcljava/TimeTest.java"
     "src/test/java/org/ros2/rcljava/action/ActionServerTest.java"
+    "src/test/java/org/ros2/rcljava/action/MockActionClient.java"
     "src/test/java/org/ros2/rcljava/client/ClientTest.java"
     "src/test/java/org/ros2/rcljava/node/NodeTest.java"
     "src/test/java/org/ros2/rcljava/parameters/AsyncParametersClientTest.java"
@@ -316,6 +320,7 @@ if(BUILD_TESTING)
       TESTS
       "${testsuite}"
       INCLUDE_JARS
+      "${action_msgs_JARS}"
       "${rcljava_common_JARS}"
       "${rcljava_test_msgs_JARS}"
       "${std_msgs_JARS}"
